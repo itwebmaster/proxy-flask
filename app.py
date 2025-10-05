@@ -7,8 +7,8 @@ app = Flask(__name__)
 
 # Настройки прокси: порт => интерфейс / netns
 PROXIES = {
-    4444: "eth0",
-    4445: "eth1",
+    4444: "eth1",
+    4445: "eth0",
 }
 
 def get_public_ip_ns(ns):
