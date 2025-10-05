@@ -5,36 +5,40 @@ import requests
 
 app = Flask(__name__)
 
-# Настройки прокси: порт => интерфейс / netns
+# Настройки прокси: порт => логин/пароль
 PROXIES = {
-    4444: "eth1",
-    4445: "eth0",
+    4444: {"iface": "eth1", "user": "charter", "pass": "tickets2025"},
+    4445: {"iface": "eth0", "user": "charter", "pass": "tickets2025"},
 }
 
-def get_public_ip_ns(ns):
-    """Получаем публичный IP через netns или интерфейс"""
+def get_public_ip(proxy_port, username, password):
+    """Получаем публичный IP через прокси-порт"""
+    proxy_url = f"http://{username}:{password}@127.0.0.1:{proxy_port}"
+    proxies = {
+        "http": proxy_url,
+        "https": proxy_url
+    }
     try:
-        # Если у тебя netns:
-        # result = subprocess.check_output(["ip", "netns", "exec", ns, "curl", "-s", "https://ifconfig.me"], text=True, timeout=5)
-
-        # Для простоты просто curl от интерфейса
-        result = requests.get("https://api.ipify.org", timeout=5)
-        return result.text.strip()
-    except Exception:
-        return "Unavailable"
+        resp = requests.get("https://api.ipify.org", proxies=proxies, timeout=5)
+        return resp.text.strip()
+    except Exception as e:
+        return f"Error: {str(e)}"
 
 @app.route("/")
 def index():
     proxy_status = []
-    for port, iface in PROXIES.items():
-        ip = get_public_ip_ns(iface)
-        proxy_status.append({"port": port, "iface": iface, "public_ip": ip})
+    for port, info in PROXIES.items():
+        ip = get_public_ip(port, info["user"], info["pass"])
+        proxy_status.append({
+            "port": port,
+            "iface": info["iface"],
+            "public_ip": ip
+        })
     return render_template("index.html", proxies=proxy_status)
 
 @app.route("/restart/<int:port>")
 def restart_proxy(port):
-    # Здесь вызываем bash-скрипт смены IP или перезапуска прокси
-    # Например:
+    # Вызов скрипта перезапуска прокси для конкретного порта
     # subprocess.call(["/home/ivan/scripts/restart_proxy.sh", str(port)])
     return redirect(url_for('index'))
 
