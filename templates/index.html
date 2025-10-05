@@ -1,37 +1,26 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>Proxy Admin</title>
-    <style>
-        body { font-family: sans-serif; padding: 20px; }
-        .proxy { margin-bottom: 20px; padding: 10px; border: 1px solid #ccc; }
-        .ok { color: green; }
-        .fail { color: red; }
-    </style>
+  <meta charset="UTF-8">
+  <title>Proxy Dashboard</title>
 </head>
 <body>
-<h1>Proxy Admin</h1>
-{% for iface, data in status.items() %}
-<div class="proxy">
-    <h2>{{ iface }} (порт {{ data.port }})</h2>
-    <p>IP: {{ data.ip or "нет" }}</p>
-    <p>Proxy: <span class="{{ 'ok' if data.proxy_ok else 'fail' }}">{{ 'OK' if data.proxy_ok else 'FAIL' }}</span></p>
-    <button onclick="changeIP('{{ iface }}')">Сменить IP</button>
-</div>
-{% endfor %}
-
-<script>
-    function changeIP(iface){
-        fetch("/api/change_ip", {
-            method: "POST",
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({interface: iface})
-        }).then(r => r.json()).then(res => {
-            alert(JSON.stringify(res));
-            location.reload();
-        });
-    }
-</script>
+  <h1>Proxy Dashboard</h1>
+  <table border="1" cellpadding="5">
+    <tr>
+      <th>Port</th>
+      <th>Interface</th>
+      <th>Public IP</th>
+      <th>Action</th>
+    </tr>
+    {% for proxy in proxies %}
+    <tr>
+      <td>{{ proxy.port }}</td>
+      <td>{{ proxy.iface }}</td>
+      <td>{{ proxy.public_ip }}</td>
+      <td><a href="{{ url_for('restart_proxy', port=proxy.port) }}">Restart</a></td>
+    </tr>
+    {% endfor %}
+  </table>
 </body>
 </html>

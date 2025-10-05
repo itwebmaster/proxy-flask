@@ -1,77 +1,42 @@
-from flask import Flask, render_template, jsonify, request
+# app.py
+from flask import Flask, render_template, redirect, url_for
 import subprocess
-import socket
+import requests
 
 app = Flask(__name__)
 
-# Интерфейсы и их прокси порты
+# Настройки прокси: порт => интерфейс / netns
 PROXIES = {
-    "eth0": 4444,
-    "eth1": 4445
+    4444: "eth0",
+    4445: "eth1",
 }
 
-def get_interface_ip(interface):
-    """Возвращает текущий IP интерфейса"""
+def get_public_ip_ns(ns):
+    """Получаем публичный IP через netns или интерфейс"""
     try:
-        result = subprocess.check_output(
-            ["ip", "addr", "show", interface], encoding="utf-8"
-        )
-        for line in result.split("\n"):
-            line = line.strip()
-            if line.startswith("inet "):
-                return line.split()[1].split("/")[0]
-    except subprocess.CalledProcessError:
-        return None
+        # Если у тебя netns:
+        # result = subprocess.check_output(["ip", "netns", "exec", ns, "curl", "-s", "https://ifconfig.me"], text=True, timeout=5)
 
-def check_proxy(port, timeout=2):
-    """Проверка доступности прокси через curl"""
-    try:
-        subprocess.check_output(
-            ["curl", "-s", "--max-time", str(timeout), "-x", f"http://127.0.0.1:{port}", "http://ifconfig.me"],
-            stderr=subprocess.DEVNULL,
-            timeout=timeout+1
-        )
-        return True
-    except subprocess.SubprocessError:
-        return False
+        # Для простоты просто curl от интерфейса
+        result = requests.get("https://api.ipify.org", timeout=5)
+        return result.text.strip()
+    except Exception:
+        return "Unavailable"
 
 @app.route("/")
 def index():
-    status = {}
-    for iface, port in PROXIES.items():
-        ip = get_interface_ip(iface)
-        proxy_ok = check_proxy(port)
-        status[iface] = {
-            "ip": ip,
-            "port": port,
-            "proxy_ok": proxy_ok
-        }
-    return render_template("index.html", status=status)
+    proxy_status = []
+    for port, iface in PROXIES.items():
+        ip = get_public_ip_ns(iface)
+        proxy_status.append({"port": port, "iface": iface, "public_ip": ip})
+    return render_template("index.html", proxies=proxy_status)
 
-@app.route("/api/status")
-def api_status():
-    status = {}
-    for iface, port in PROXIES.items():
-        ip = get_interface_ip(iface)
-        proxy_ok = check_proxy(port)
-        status[iface] = {
-            "ip": ip,
-            "port": port,
-            "proxy_ok": proxy_ok
-        }
-    return jsonify(status)
-
-@app.route("/api/change_ip", methods=["POST"])
-def change_ip():
-    iface = request.json.get("interface")
-    if iface not in PROXIES:
-        return jsonify({"error": "Unknown interface"}), 400
-
-    try:
-        subprocess.run(["bash", "./scripts/change_ip.sh", iface], check=True)
-        return jsonify({"status": "ok"})
-    except subprocess.CalledProcessError:
-        return jsonify({"status": "error"}), 500
+@app.route("/restart/<int:port>")
+def restart_proxy(port):
+    # Здесь вызываем bash-скрипт смены IP или перезапуска прокси
+    # Например:
+    # subprocess.call(["/home/ivan/scripts/restart_proxy.sh", str(port)])
+    return redirect(url_for('index'))
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
