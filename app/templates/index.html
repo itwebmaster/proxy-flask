@@ -1,59 +1,56 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <meta charset="utf-8">
     <title>Proxy Dashboard</title>
     <style>
-        table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-        th, td {
-            border: 1px solid #ccc;
-            padding: 8px;
-        }
-        #log {
-            width: 100%;
-            height: 300px;
-            background: #1e1e1e;
-            color: #fff;
-            font-family: monospace;
-            overflow-y: scroll;
-            padding: 10px;
-            margin-top: 20px;
-        }
+        table { border-collapse: collapse; width: 60%; margin-bottom: 20px; }
+        th, td { border: 1px solid #000; padding: 5px; text-align: left; }
+        pre { height: 400px; overflow: auto; border: 1px solid #000; padding: 10px; background: #f0f0f0; }
     </style>
 </head>
 <body>
-<h2>Proxy Status</h2>
-<table>
-    <thead>
+<h1>Проксі</h1>
+<table id="proxy-table">
     <tr>
         <th>Port</th>
         <th>Interface</th>
         <th>Public IP</th>
     </tr>
-    </thead>
-    <tbody>
-    {% for proxy in proxies %}
-    <tr>
-        <td>{{ proxy.port }}</td>
-        <td>{{ proxy.iface }}</td>
-        <td>{{ proxy.public_ip }}</td>
+    {% for port, info in proxies.items() %}
+    <tr data-port="{{ port }}">
+        <td>{{ port }}</td>
+        <td>{{ info.iface }}</td>
+        <td class="ip">{{ info.public_ip }}</td>
     </tr>
     {% endfor %}
-    </tbody>
 </table>
 
-<h2>3proxy Live Log</h2>
-<div id="log"></div>
+<h2>Live 3proxy Log</h2>
+<pre id="log"></pre>
 
 <script>
-    const logDiv = document.getElementById('log');
+    // SSE для логів
+    const logContainer = document.getElementById('log');
     const evtSource = new EventSource("/logs/3proxy");
-    evtSource.onmessage = function(e) {
-        logDiv.innerText += e.data;
-        logDiv.scrollTop = logDiv.scrollHeight; // автоскрол вниз
+    evtSource.onmessage = function(event) {
+        logContainer.textContent += event.data;
+        logContainer.scrollTop = logContainer.scrollHeight;
     };
+    evtSource.onerror = function() { console.error("SSE error"); evtSource.close(); };
+
+    // Автооновлення публічного IP кожну хвилину
+    async function updateProxies() {
+        try {
+            const res = await fetch("/api/proxies");
+            const data = await res.json();
+            for (const port in data) {
+                const row = document.querySelector(`tr[data-port='${port}'] .ip`);
+                if (row) row.textContent = data[port].public_ip;
+            }
+        } catch(e){ console.error(e); }
+    }
+    setInterval(updateProxies, 60000);  // кожну хвилину
 </script>
 </body>
 </html>
