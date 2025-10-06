@@ -7,7 +7,7 @@ LOG_DIR = "/var/log/3proxy"
 logs_bp = Blueprint('logs', __name__, url_prefix='/logs')
 
 def get_log_file_path():
-    today_str = datetime.now().strftime("%d%m%y")
+    today_str = datetime.now().strftime("%y%m%d")
     path = os.path.join(LOG_DIR, f"3proxy-{today_str}.log")
     # створюємо файл, якщо нема
     if not os.path.exists(path):

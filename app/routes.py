@@ -16,7 +16,7 @@ PROXIES = {
 
 
 def get_log_file_path():
-    today_str = datetime.now().strftime("%d%m%y")
+    today_str = datetime.now().strftime("%y%m%d")
     path = os.path.join("/var/log/3proxy", f"3proxy-{today_str}.log")
     # створюємо файл, якщо його нема
     if not os.path.exists(path):
@@ -45,8 +45,7 @@ thread.start()
 
 @main_bp.route('/')
 def index():
-    log_path = get_log_file_path()
-    return render_template("index.html", proxies=PROXIES, log_path=log_path)
+    return render_template("index.html", proxies=PROXIES)
 
 # API для автопідвантаження IP через JS
 @main_bp.route('/api/proxies')
