@@ -8,7 +8,7 @@ log() {
 }
 
 get_ip() {
-  curl -s --max-time 5 https://api.ipify.org
+  curl --interface "$IFACE" -s --max-time 5 https://api.ipify.org
 }
 
 log "🔁 Reconnect started ($IFACE)"
@@ -28,7 +28,7 @@ if [ -z "$VERIF_TOKEN" ]; then
 fi
 
 # 2️⃣ Вимикаємо з’єднання
-curl -s -X POST \
+curl -s --interface "$IFACE" -X POST \
   -H "Cookie: $COOKIE" \
   -H "__RequestVerificationToken: $VERIF_TOKEN" \
   -d "<request><dataswitch>0</dataswitch></request>" \
@@ -36,21 +36,28 @@ curl -s -X POST \
 
 sleep 3
 
-# 3️⃣ Отримуємо новий токен для підключення
-TOKEN=$(curl -s http://$HILINK_IP/api/webserver/SesTokInfo)
+# 3️⃣ Отримуємо новий токен
+TOKEN=$(curl -s --interface "$IFACE" http://$HILINK_IP/api/webserver/SesTokInfo)
 COOKIE=$(echo "$TOKEN" | grep -oPm1 "(?<=<SesInfo>)[^<]+")
 VERIF_TOKEN=$(echo "$TOKEN" | grep -oPm1 "(?<=<TokInfo>)[^<]+")
 
-# 4️⃣ Увімкнення знову
-curl -s -X POST \
+# 4️⃣ Вмикаємо знову
+curl -s --interface "$IFACE" -X POST \
   -H "Cookie: $COOKIE" \
   -H "__RequestVerificationToken: $VERIF_TOKEN" \
   -d "<request><dataswitch>1</dataswitch></request>" \
   http://$HILINK_IP/api/dialup/mobile-dataswitch > /dev/null
 
 # 5️⃣ Чекаємо появи нового IP
-sleep 6
-NEW_IP=$(get_ip)
+for i in {1..10}; do
+  sleep 6
+  NEW_IP=$(get_ip)
+  if [ -n "$NEW_IP" ]; then
+    break
+  fi
+  log "⏳ Waiting for new IP..."
+done
+
 END=$(date +%s)
 DURATION=$((END - START))
 
