@@ -31,7 +31,7 @@
 
 <h2>Logs</h2>
 <p>Current log file: {{ log_path }}</p>
-<pre id="log-output"></pre>
+<pre id="log"></pre>
 
 <h2>Scripts</h2>
 {% for s in scripts %}
@@ -42,15 +42,12 @@
 <button onclick="restartHilink()">Restart HiLink Modem</button>
 
 <script>
-    const logOutput = document.getElementById('log-output');
-
-    // Stream log updates
+    const logContainer = document.getElementById('log');
     const evtSource = new EventSource("/logs/3proxy");
     evtSource.onmessage = function(e) {
-        logOutput.textContent = e.data;
-        logOutput.scrollTop = logOutput.scrollHeight;
+        logContainer.textContent += e.data + "\n";
+        logContainer.scrollTop = logContainer.scrollHeight; // автоскрол вниз
     };
-
     async function runScript(name) {
         const res = await fetch("/api/run_script", {
             method: "POST",

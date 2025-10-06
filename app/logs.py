@@ -25,25 +25,24 @@ def tail_f(file_path, last_n=50):
 
     lines = deque(maxlen=last_n)
 
-    # Считываем последние last_n строк
     with open(file_path, "r") as f:
+        # считываем последние last_n строк
         for line in f:
             lines.append(line.rstrip("\n"))
 
-    # Отправляем начальные строки
-    yield f"data: {'\n'.join(lines)}\n\n"
+    # Отправляем начальные строки по одной
+    for l in lines:
+        yield f"data: {l}\n\n"
 
     with open(file_path, "r") as f:
-        # Перемещаемся в конец файла
         f.seek(0, os.SEEK_END)
         while True:
             line = f.readline()
             if not line:
                 time.sleep(0.5)
                 continue
-            lines.append(line.rstrip("\n"))
-            # Формируем отдельные строки для SSE
-            yield f"data: {'\n'.join(lines)}\n\n"
+            yield f"data: {line.rstrip()}\n\n"
+
 
 
 @logs_bp.route("/3proxy")
