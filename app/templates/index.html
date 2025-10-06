@@ -1,56 +1,99 @@
-<!DOCTYPE html>
-<html>
+<!doctype html>
+<html lang="en">
 <head>
-    <meta charset="utf-8">
+    <meta charset="UTF-8">
     <title>Proxy Dashboard</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <style>
-        table { border-collapse: collapse; width: 60%; margin-bottom: 20px; }
-        th, td { border: 1px solid #000; padding: 5px; text-align: left; }
-        pre { height: 400px; overflow: auto; border: 1px solid #000; padding: 10px; background: #f0f0f0; }
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        table { border-collapse: collapse; width: 100%; margin-bottom: 20px; }
+        th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; }
+        button { margin: 2px; }
+        pre { border: 1px solid #ccc; padding: 10px; height: 300px; overflow-y: scroll; background: #f9f9f9; }
     </style>
 </head>
 <body>
-<h1>Проксі</h1>
-<table id="proxy-table">
+<h1>Proxy Dashboard</h1>
+
+<h2>Proxies</h2>
+<table>
+    <tr><th>Port</th><th>Interface</th><th>Public IP</th><th>Actions</th></tr>
+    {% for p in proxies %}
     <tr>
-        <th>Port</th>
-        <th>Interface</th>
-        <th>Public IP</th>
-    </tr>
-    {% for port, info in proxies.items() %}
-    <tr data-port="{{ port }}">
-        <td>{{ port }}</td>
-        <td>{{ info.iface }}</td>
-        <td class="ip">{{ info.public_ip }}</td>
+        <td>{{ p.port }}</td>
+        <td>{{ p.iface }}</td>
+        <td id="ip-{{ p.port }}">{{ p.public_ip }}</td>
+        <td>
+            <button onclick="updateIP({{ p.port }})">Update IP</button>
+            <button onclick="runScript('restart_proxy.sh', ['{{ p.port }}'])">Restart Proxy</button>
+        </td>
     </tr>
     {% endfor %}
 </table>
 
-<h2>Live 3proxy Log</h2>
-<pre id="log"></pre>
+<h2>3proxy Log</h2>
+<p>File: <strong id="log_path">{{ log_path }}</strong></p>
+<pre id="log_area">Loading log...</pre>
+
+<h2>HiLink Modem</h2>
+<button onclick="restartHiLink()">Reconnect Modem</button>
+
+<h2>Scripts</h2>
+{% for s in scripts %}
+<button onclick="runScript('{{ s }}')">{{ s }}</button>
+{% endfor %}
 
 <script>
-    // SSE для логів
-    const logContainer = document.getElementById('log');
-    const evtSource = new EventSource("/logs/3proxy");
-    evtSource.onmessage = function(event) {
-        logContainer.textContent += event.data;
-        logContainer.scrollTop = logContainer.scrollHeight;
-    };
-    evtSource.onerror = function() { console.error("SSE error"); evtSource.close(); };
+    const API_KEY = "{{ api_key }}";  // передаем из Flask для AJAX
 
-    // Автооновлення публічного IP кожну хвилину
-    async function updateProxies() {
-        try {
-            const res = await fetch("/api/proxies");
-            const data = await res.json();
-            for (const port in data) {
-                const row = document.querySelector(`tr[data-port='${port}'] .ip`);
-                if (row) row.textContent = data[port].public_ip;
-            }
-        } catch(e){ console.error(e); }
+    // Обновление IP
+    function updateIP(port){
+        $.get(`/api/current_ip?port=${port}`, function(data){
+            $("#ip-"+port).text(data.public_ip);
+        });
     }
-    setInterval(updateProxies, 60000);  // кожну хвилину
+
+    // Запуск скрипта
+    function runScript(name, args=[]){
+        $.ajax({
+            url: "/api/run_script",
+            type: "POST",
+            headers: {"X-API-KEY": API_KEY},
+            contentType: "application/json",
+            data: JSON.stringify({name:name, args:args}),
+            success: function(data){
+                alert("PID: "+data.pid+"\nOutput: "+(data.initial_output.join("\n")||""))
+            }
+        });
+    }
+
+    // Переподключение модема
+    function restartHiLink(){
+        $.ajax({
+            url:"/api/restart_hilink",
+            type:"POST",
+            headers: {"X-API-KEY": API_KEY},
+            contentType:"application/json",
+            data: JSON.stringify({action:"reconnect"}),
+            success:function(data){ alert(JSON.stringify(data)) }
+        });
+    }
+
+    // Live лог 3proxy
+    let evtSource = new EventSource("/logs/3proxy");
+    evtSource.onmessage = function(e){
+        let area = document.getElementById("log_area");
+        area.textContent = e.data;
+        area.scrollTop = area.scrollHeight;
+    }
+
+    // Обновление IP каждую минуту
+    setInterval(function(){
+        {% for p in proxies %}
+        updateIP({{ p.port }});
+        {% endfor %}
+    }, 60000);
 </script>
 </body>
 </html>

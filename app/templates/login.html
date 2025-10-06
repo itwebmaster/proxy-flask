@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Proxy Dashboard</title>
+    <style>
+        table { border-collapse: collapse; width: 60%; margin-bottom: 20px; }
+        th, td { border: 1px solid #000; padding: 5px; text-align: left; }
+        pre { height: 400px; overflow: auto; border: 1px solid #000; padding: 10px; background: #f0f0f0; }
+    </style>
+</head>
+<body>
+<h1>Проксі</h1>
+<table id="proxy-table">
+    <tr>
+        <th>Port</th>
+        <th>Interface</th>
+        <th>Public IP</th>
+    </tr>
+    {% for port, info in proxies.items() %}
+    <tr data-port="{{ port }}">
+        <td>{{ port }}</td>
+        <td>{{ info.iface }}</td>
+        <td class="ip">{{ info.public_ip }}</td>
+    </tr>
+    {% endfor %}
+</table>
+
+<h2>Live 3proxy Log</h2>
+<pre id="log"></pre>
+
+<script>
+    // SSE для логів
+    const logContainer = document.getElementById('log');
+    const evtSource = new EventSource("/logs/3proxy");
+    evtSource.onmessage = function(event) {
+        logContainer.textContent += event.data;
+        logContainer.scrollTop = logContainer.scrollHeight;
+    };
+    evtSource.onerror = function() { console.error("SSE error"); evtSource.close(); };
+
+    // Автооновлення публічного IP кожну хвилину
+    async function updateProxies() {
+        try {
+            const res = await fetch("/api/proxies");
+            const data = await res.json();
+            for (const port in data) {
+                const row = document.querySelector(`tr[data-port='${port}'] .ip`);
+                if (row) row.textContent = data[port].public_ip;
+            }
+        } catch(e){ console.error(e); }
+    }
+    setInterval(updateProxies, 60000);  // кожну хвилину
+</script>
+</body>
+</html>
