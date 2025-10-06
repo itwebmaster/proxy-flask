@@ -1,3 +1,4 @@
+<!-- templates/logs.html -->
 <!DOCTYPE html>
 <html>
 <head>
@@ -11,6 +12,7 @@
             font-family: monospace;
             overflow-y: scroll;
             padding: 10px;
+            white-space: pre-wrap;
         }
     </style>
 </head>
@@ -19,31 +21,13 @@
 <div id="log"></div>
 
 <script>
-    // Автооновлення таблиці проксі
-    async function updateProxies() {
-        const res = await fetch("/api/proxies");
-        const data = await res.json();
-        for (const port in data) {
-            const row = document.querySelector(`tr[data-port='${port}'] .ip`);
-            if (row) row.textContent = data[port].public_ip;
-        }
-    }
-    setInterval(updateProxies, 60000);  // кожну хвилину
-
-    // SSE для live-логів
     const logContainer = document.getElementById('log');
     const evtSource = new EventSource("/logs/3proxy");
-    evtSource.onmessage = function(event) {
-        logContainer.textContent += event.data + "\n";
-        logContainer.scrollTop = logContainer.scrollHeight;
+
+    evtSource.onmessage = function(e) {
+        logContainer.textContent += e.data + "\n";
+        logContainer.scrollTop = logContainer.scrollHeight; // автоскрол вниз
     };
-    //
-    // const logDiv = document.getElementById('log');
-    // const evtSource = new EventSource("/logs/3proxy");
-    // evtSource.onmessage = function(e) {
-    //     logDiv.innerText += e.data;
-    //     logDiv.scrollTop = logDiv.scrollHeight; // автоскрол вниз
-    // };
 </script>
 </body>
 </html>

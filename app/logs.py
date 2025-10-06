@@ -1,16 +1,16 @@
+# app/logs.py
 from flask import Blueprint, Response, session, redirect, url_for
 from functools import wraps
 from collections import deque
 from datetime import datetime
-import time, os
+import os, time
 
-LOG_DIR = os.environ.get("LOG_DIR")
+LOG_DIR = os.environ.get("LOG_DIR", "/var/log/3proxy")
 logs_bp = Blueprint("logs", __name__, url_prefix="/logs")
 
 def get_log_file_path():
-    today_str = datetime.now().strftime("%y%m%d")
+    today_str = datetime.now().strftime("%y%m%d")  # 251006
     return os.path.join(LOG_DIR, f"3proxy-{today_str}.log")
-
 
 def login_required(f):
     @wraps(f)
@@ -21,29 +21,27 @@ def login_required(f):
     return decorated
 
 def tail_f(file_path, last_n=50):
-    from collections import deque
-
+    """Генератор последних last_n строк + новых строк"""
     lines = deque(maxlen=last_n)
+    try:
+        with open(file_path, "r") as f:
+            for line in f:
+                lines.append(line.rstrip("\n"))
+        # Отправляем начальные строки
+        for l in lines:
+            yield f"data: {l}\n\n"
 
-    with open(file_path, "r") as f:
-        # считываем последние last_n строк
-        for line in f:
-            lines.append(line.rstrip("\n"))
-
-    # Отправляем начальные строки по одной
-    for l in lines:
-        yield f"data: {l}\n\n"
-
-    with open(file_path, "r") as f:
-        f.seek(0, os.SEEK_END)
-        while True:
-            line = f.readline()
-            if not line:
-                time.sleep(0.5)
-                continue
-            yield f"data: {line.rstrip()}\n\n"
-
-
+        # Потом отслеживаем новые строки
+        with open(file_path, "r") as f:
+            f.seek(0, os.SEEK_END)
+            while True:
+                line = f.readline()
+                if not line:
+                    time.sleep(0.5)
+                    continue
+                yield f"data: {line.rstrip()}\n\n"
+    except Exception as e:
+        yield f"data: Error: {str(e)}\n\n"
 
 @logs_bp.route("/3proxy")
 @login_required
