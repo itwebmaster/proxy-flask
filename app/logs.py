@@ -1,4 +1,5 @@
-from flask import Blueprint, Response
+from flask import Blueprint, Response, session, redirect, url_for
+from functools import wraps
 from collections import deque
 from datetime import datetime
 import time, os
@@ -9,6 +10,15 @@ logs_bp = Blueprint("logs", __name__, url_prefix="/logs")
 def get_log_file_path():
     today_str = datetime.now().strftime("%d%m%y")
     return os.path.join(LOG_DIR, f"3proxy-{today_str}.log")
+
+
+def login_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if not session.get("logged_in"):
+            return redirect(url_for("auth_bp.login"))
+        return f(*args, **kwargs)
+    return decorated
 
 def tail_f(file_path, last_n=50):
     lines = deque(maxlen=last_n)
@@ -26,6 +36,7 @@ def tail_f(file_path, last_n=50):
             yield f"data: {''.join(lines)}\n\n"
 
 @logs_bp.route("/3proxy")
+@login_required
 def stream_logs():
     file_path = get_log_file_path()
     if not os.path.exists(file_path):
