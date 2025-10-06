@@ -48,55 +48,7 @@
 {% for s in scripts %}
 <button class="script-link" onclick="runScript('{{ s }}')">{{ s }}</button>
 {% endfor %}
-
 <h2>Actions</h2>
-<button onclick="restartHilink()">Restart HiLink Modem</button>
-
-<script>
-    const logContainer = document.getElementById('log');
-    const evtSource = new EventSource("/logs/3proxy");
-
-    evtSource.onmessage = function(e) {
-        logContainer.textContent += e.data + "\n";
-        logContainer.scrollTop = logContainer.scrollHeight; // автоскрол вниз
-    };
-    async function runScript(name) {
-        const res = await fetch("/api/run_script", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "X-API-KEY": "{{ api_key }}"
-            },
-            body: JSON.stringify({name: name})
-        });
-        const data = await res.json();
-        alert(JSON.stringify(data));
-    }
-
-    async function restartHilink() {
-        const res = await fetch("/api/restart_hilink", {
-            method: "POST",
-            headers: {
-                "X-API-KEY": "{{ api_key }}"
-            }
-        });
-        const data = await res.json();
-        alert(JSON.stringify(data));
-    }
-
-    // Refresh public IPs every minute
-    setInterval(async () => {
-        const tableRows = document.querySelectorAll("table tr");
-        for (let i = 1; i < tableRows.length; i++) {
-            const port = tableRows[i].children[0].textContent;
-            const res = await fetch(`/api/current_ip?port=${port}`, {
-                headers: {"X-API-KEY": "{{ api_key }}"}
-            });
-            const data = await res.json();
-            tableRows[i].children[2].textContent = data.public_ip;
-        }
-    }, 60000);
-</script>
 
 <button onclick="reconnectHilink()">Reconnect HiLink</button>
 
