@@ -15,9 +15,14 @@ def get_log_file_path():
     return path
 
 def tail_f(file_path):
+    """Генератор, який спочатку повертає весь файл, а потім live-доповнення"""
     try:
         with open(file_path, "r") as f:
-            f.seek(0, os.SEEK_END)
+            # Спершу читаємо весь файл
+            for line in f:
+                yield f"data: {line}\n\n"
+
+            # Потім йдемо в режим live
             while True:
                 line = f.readline()
                 if line:
@@ -26,6 +31,7 @@ def tail_f(file_path):
                     time.sleep(0.2)
     except Exception as e:
         yield f"data: Error: {str(e)}\n\n"
+
 
 @logs_bp.route("/3proxy")
 def stream_logs():
