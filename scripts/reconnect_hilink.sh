@@ -1,6 +1,15 @@
 #!/bin/bash
 HILINK_IP="192.168.8.1"
-LOG_FILE="${LOG_DIR:-/home/ivan/logs}/hilink.log"
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Папка для логов внутри корня проекта
+LOG_DIR="${PROJECT_ROOT}/logs"
+
+# Файл логов
+LOG_FILE="${LOG_DIR}/hilink.log"
+
+mkdir -p "$LOG_DIR"
+
 IFACE="eth1"
 
 log() {
