@@ -1,13 +1,35 @@
-from flask import Flask, render_template, redirect, url_for, request
+from flask import Flask, render_template, redirect, url_for, request, Response
 from dotenv import load_dotenv
 import subprocess
 import requests
 import os
+from functools import wraps
 
 load_dotenv()  # Загружаем .env
 
 app = Flask(__name__)
 app.config['DEBUG'] = os.getenv("DEBUG", "False").lower() == "true"
+
+# --- HTTP Basic Auth ---
+FLASK_PASSWORD = os.getenv("FLASK_PASSWORD", "supersecret")  # ставь свой пароль
+
+def check_auth(password):
+    return password == FLASK_PASSWORD
+
+def authenticate():
+    return Response(
+        'Authentication required', 401,
+        {'WWW-Authenticate': 'Basic realm="Login Required"'}
+    )
+
+def requires_auth(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        auth = request.authorization
+        if not auth or not check_auth(auth.password):
+            return authenticate()
+        return f(*args, **kwargs)
+    return decorated
 
 # --- Загружаем прокси из .env ---
 def load_proxies():
@@ -37,7 +59,9 @@ def get_public_ip(proxy_port, username, password):
     except Exception as e:
         return f"Error: {str(e)}"
 
+# --- Маршруты ---
 @app.route("/")
+@requires_auth
 def index():
     proxy_status = []
     for port, info in PROXIES.items():
@@ -49,25 +73,3 @@ def index():
         })
     return render_template("index.html", proxies=proxy_status)
 
-@app.route("/restart/<int:port>")
-def restart_proxy(port):
-    # перезапускаем конкретный прокси (пример — вызываем shell-скрипт)
-    script_path = f"/home/ivan/scripts/restart_proxy.sh"
-    subprocess.call([script_path, str(port)])
-    return redirect(url_for('index'))
-
-@app.route("/api/restart_hilink", methods=["POST"])
-def restart_hilink():
-    api_key = request.headers.get("X-API-KEY")
-    if api_key != os.getenv("API_KEY"):
-        return {"error": "Unauthorized"}, 403
-
-    script_path = "/home/ivan/scripts/restart_hilink.sh"
-    if os.path.exists(script_path):
-        subprocess.call([script_path])
-        return {"status": "restarted"}
-    return {"error": "Script not found"}, 404
-
-
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
