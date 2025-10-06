@@ -1,47 +1,53 @@
+# app/api.py
 from flask import Blueprint, request, jsonify
-from .auth import login_required
-import os, subprocess
+import subprocess
+import os
+from datetime import datetime
 
-api_bp = Blueprint("api", __name__, url_prefix="/api")
-API_KEY = os.environ.get("API_KEY")
+api_bp = Blueprint("api_bp", __name__, url_prefix="/api")
 
-def check_api_key(f):
-    from functools import wraps
-    from flask import request, jsonify
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        if request.headers.get("X-API-KEY") != API_KEY:
-            return jsonify({"error": "Invalid API Key"}), 403
-        return f(*args, **kwargs)
-    return decorated
+LOG_DIR = os.environ.get("LOG_DIR", "./logs")
+SCRIPTS_DIR = os.environ.get("SCRIPTS_DIR", "./scripts")
 
-@api_bp.route("/current_ip")
-@login_required
-@check_api_key
-def current_ip():
-    port = request.args.get("port")
-    from .proxy import get_public_ip, PROXIES
-    p = next((p for p in PROXIES if str(p["port"])==str(port)), None)
-    if not p:
-        return jsonify({"error":"Proxy not found"}), 404
-    return jsonify({"port": port, "public_ip": get_public_ip(p["port"], p["user"], p["pass"])})
-
-@api_bp.route("/run_script", methods=["POST"])
-@login_required
-@check_api_key
-def run_script():
-    data = request.json
-    name = data.get("name")
-    args = data.get("args", [])
-    path = os.path.join("scripts", name)
-    if not os.path.exists(path):
-        return jsonify({"error": "Script not found"}), 404
-    proc = subprocess.Popen([path]+args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    return jsonify({"pid": proc.pid, "initial_output": []})
+def log_action(message: str):
+    """Додає запис у hilink.log з таймштампом"""
+    os.makedirs(LOG_DIR, exist_ok=True)
+    log_file = os.path.join(LOG_DIR, "hilink.log")
+    with open(log_file, "a") as f:
+        f.write(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {message}\n")
 
 @api_bp.route("/restart_hilink", methods=["POST"])
-@login_required
-@check_api_key
 def restart_hilink():
-    # сюда вставить код переподключения HiLink
-    return jsonify({"status":"ok"})
+    """Перезапускає HiLink модем через скрипт"""
+    script_path = os.path.join(SCRIPTS_DIR, "restart_hilink.sh")
+
+    if not os.path.exists(script_path):
+        msg = f"❌ Script not found: {script_path}"
+        log_action(msg)
+        return jsonify({"status": "error", "message": msg}), 404
+
+    try:
+        result = subprocess.run(
+            ["bash", script_path],
+            capture_output=True,
+            text=True,
+            timeout=60
+        )
+        msg = f"✅ Restart executed: {script_path}\nSTDOUT: {result.stdout.strip()}\nSTDERR: {result.stderr.strip()}"
+        log_action(msg)
+
+        return jsonify({
+            "status": "ok",
+            "stdout": result.stdout.strip(),
+            "stderr": result.stderr.strip()
+        })
+
+    except subprocess.TimeoutExpired:
+        msg = f"⏰ Timeout: {script_path}"
+        log_action(msg)
+        return jsonify({"status": "error", "message": msg}), 504
+
+    except Exception as e:
+        msg = f"💥 Exception: {e}"
+        log_action(msg)
+        return jsonify({"status": "error", "message": str(e)}), 500
