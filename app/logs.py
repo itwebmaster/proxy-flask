@@ -12,13 +12,6 @@ def get_log_file_path():
     today_str = datetime.now().strftime("%y%m%d")  # 251006
     return os.path.join(LOG_DIR, f"3proxy-{today_str}.log")
 
-def login_required(f):
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        if not session.get("logged_in"):
-            return redirect(url_for("auth_bp.login"))
-        return f(*args, **kwargs)
-    return decorated
 
 def tail_f(file_path, last_n=50):
     """Генератор последних last_n строк + новых строк"""
@@ -44,7 +37,6 @@ def tail_f(file_path, last_n=50):
         yield f"data: Error: {str(e)}\n\n"
 
 @logs_bp.route("/3proxy")
-@login_required
 def stream_logs():
     file_path = get_log_file_path()
     if not os.path.exists(file_path):
