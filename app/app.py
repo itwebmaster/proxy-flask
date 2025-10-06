@@ -26,7 +26,6 @@ def get_public_ip(proxy_port, username, password):
         return f"Error: {str(e)}"
 
 @app.route("/")
-@login_required
 def index():
     proxy_status = []
     for port, info in PROXIES.items():
@@ -43,14 +42,6 @@ def restart_proxy(port):
     # Вызов скрипта перезапуска прокси для конкретного порта
     # subprocess.call(["/home/ivan/scripts/restart_proxy.sh", str(port)])
     return redirect(url_for('index'))
-
-def login_required(f):
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        if not session.get("logged_in"):
-            return redirect(url_for("auth_bp.login"))
-        return f(*args, **kwargs)
-    return decorated
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)

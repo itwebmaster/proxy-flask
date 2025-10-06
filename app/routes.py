@@ -1,5 +1,4 @@
 from flask import Blueprint, render_template
-from .auth import login_required
 from .proxy import PROXIES, get_public_ip
 import os
 
@@ -7,7 +6,6 @@ main_bp = Blueprint("main", __name__)
 SCRIPTS_DIR = "scripts"
 
 @main_bp.route("/")
-@login_required
 def index():
     proxy_status = []
     for p in PROXIES:
