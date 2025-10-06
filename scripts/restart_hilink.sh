@@ -20,5 +20,6 @@ RESP=$(curl -s -X POST \
   -d "<request><Control>1</Control></request>" \
   http://$HILINK_IP/api/device/control)
 
+echo $RESP
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] Response: $RESP" >> "$LOG_FILE"
 echo "Done."
